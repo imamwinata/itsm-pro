@@ -135,6 +135,34 @@ function Get-WindowsUpdatePolicySetting {
     return $null
 }
 
+function Get-TargetWindowsUpdatePolicy {
+    <#
+    Membaca target policy yang disimpan oleh remediate.ps1 atau
+    Set-WindowsUpdateDeadlinePolicy.ps1. Nilai ini merupakan sumber acuan
+    compliance, sedangkan registry Windows Update adalah kondisi aktualnya.
+    #>
+    $configPath = 'HKLM:\SOFTWARE\ITSM-PRO\WindowsUpdateRestartNotification'
+
+    try {
+        $config = Get-ItemProperty -Path $configPath -ErrorAction Stop
+
+        return [PSCustomObject]@{
+            IsConfigured = $true
+            QualityDays  = [int]$config.QualityUpdateDeadlineDays
+            FeatureDays  = [int]$config.FeatureUpdateDeadlineDays
+            GraceDays    = [int]$config.GracePeriodDays
+        }
+    }
+    catch {
+        return [PSCustomObject]@{
+            IsConfigured = $false
+            QualityDays  = $null
+            FeatureDays  = $null
+            GraceDays    = $null
+        }
+    }
+}
+
 function Convert-RegistryDateValue {
     <#
     Mengubah format waktu registry yang umum (DateTime, string tanggal, FILETIME
@@ -218,6 +246,24 @@ try {
     # Tidak adanya key berarti Windows Update tidak sedang menunggu restart.
     $restartRequired = Test-Path -Path $windowsUpdateRebootRequiredKey
 
+    # Baca target dan nilai policy aktual sebelum menentukan compliance.
+    $targetPolicy = Get-TargetWindowsUpdatePolicy
+    $qualityDeadline = Get-WindowsUpdatePolicySetting -Name 'ConfigureDeadlineForQualityUpdates'
+    $featureDeadline = Get-WindowsUpdatePolicySetting -Name 'ConfigureDeadlineForFeatureUpdates'
+    $gracePeriod = Get-WindowsUpdatePolicySetting -Name 'ConfigureDeadlineGracePeriod'
+
+    $policyCompliant = $targetPolicy.IsConfigured -and
+        ($null -ne $qualityDeadline) -and ($qualityDeadline.Value -eq $targetPolicy.QualityDays) -and
+        ($null -ne $featureDeadline) -and ($featureDeadline.Value -eq $targetPolicy.FeatureDays) -and
+        ($null -ne $gracePeriod) -and ($gracePeriod.Value -eq $targetPolicy.GraceDays)
+
+    if (-not $targetPolicy.IsConfigured) {
+        Write-Log -Level 'WARNING' -Message 'Target policy belum dikonfigurasi. Remediasi akan menerapkan nilai default.'
+    }
+    elseif (-not $policyCompliant) {
+        Write-Log -Level 'WARNING' -Message "Policy tidak sesuai target. Target: quality $($targetPolicy.QualityDays) hari; feature $($targetPolicy.FeatureDays) hari; grace $($targetPolicy.GraceDays) hari."
+    }
+
     if ($restartRequired) {
         Write-Log -Message 'Windows Update membutuhkan restart. Status: non-compliant.'
 
@@ -238,7 +284,6 @@ try {
 
         # Nilai deadline adalah jumlah hari sejak update tersedia, bukan tanggal
         # deadline absolut. Windows menghitung tanggal aktual per perangkat.
-        $qualityDeadline = Get-WindowsUpdatePolicySetting -Name 'ConfigureDeadlineForQualityUpdates'
         if ($null -ne $qualityDeadline) {
             Write-Log -Message "Deadline quality update: $($qualityDeadline.Value) hari sejak update tersedia."
         }
@@ -246,7 +291,6 @@ try {
             Write-Log -Level 'WARNING' -Message 'Deadline quality update tidak ditemukan di kebijakan lokal.'
         }
 
-        $featureDeadline = Get-WindowsUpdatePolicySetting -Name 'ConfigureDeadlineForFeatureUpdates'
         if ($null -ne $featureDeadline) {
             Write-Log -Message "Deadline feature update: $($featureDeadline.Value) hari sejak update tersedia."
         }
@@ -254,7 +298,6 @@ try {
             Write-Log -Level 'WARNING' -Message 'Deadline feature update tidak ditemukan di kebijakan lokal.'
         }
 
-        $gracePeriod = Get-WindowsUpdatePolicySetting -Name 'ConfigureDeadlineGracePeriod'
         if ($null -ne $gracePeriod) {
             Write-Log -Message "Grace period restart dari kebijakan Windows Update: $($gracePeriod.Value) hari."
         }
@@ -276,6 +319,11 @@ try {
         }
 
         # Exit 1 memberi tahu Intune untuk menjalankan remediate.ps1.
+        exit 1
+    }
+
+    if (-not $policyCompliant) {
+        Write-Log -Message 'Tidak ada restart pending, tetapi Windows Update policy perlu diremediasi. Status: non-compliant.'
         exit 1
     }
 

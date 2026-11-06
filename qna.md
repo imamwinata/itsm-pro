@@ -104,3 +104,79 @@ Untuk menjalankannya melalui Intune:
 6. Assign dahulu ke grup pilot device.
 
 Pada Intune, jika detect.ps1 mengembalikan exit code 1, Intune akan melanjutkan menjalankan remediate.ps1.
+
+
+
+
+
+
+
+
+
+
+
+Urutan yang aman adalah seperti ini.
+
+1. Pilot manual di satu laptop
+
+Jalankan PowerShell sebagai Administrator:
+
+cd "C:\path\ke\itsm-pro\scripts\device-configuration\windows\windows-update"
+
+.\Set-WindowsUpdateDeadlinePolicy.ps1 `
+  -QualityUpdateDeadlineDays 7 `
+  -FeatureUpdateDeadlineDays 14 `
+  -GracePeriodDays 2
+
+Lalu cek hasil detection:
+
+cd "C:\path\ke\itsm-pro\proactive-remediations\windows\windows-update-restart-notification\pilot"
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\detect.ps1
+
+$LASTEXITCODE
+
+2. Pilot melalui Intune
+
+Tidak perlu menjalankan Set-WindowsUpdateDeadlinePolicy.ps1 jika memakai Proactive Remediation.
+
+- Upload detect.ps1 sebagai Detection script.
+- Upload remediate.ps1 sebagai Remediation script.
+- Aktifkan PowerShell 64-bit.
+- Assign ke device group pilot.
+- Jalankan remediation sesuai jadwal atau gunakan on-demand run bila tersedia.
+
+Alurnya:
+
+detect.ps1
+  → Policy belum ada/tidak sesuai atau restart pending
+  → exit 1
+  → remediate.ps1 dijalankan
+  → policy 7 / 14 / 2 hari diterapkan
+  → jadwal berikutnya detect.ps1 memverifikasi hasil
+
+3. Rollout production
+
+Setelah pilot berhasil:
+
+- Gunakan pasangan detect.ps1 + remediate.ps1 yang sama.
+- Ubah assignment dari grup pilot ke grup production secara bertahap.
+- Jangan sekaligus menjalankan Set-WindowsUpdateDeadlinePolicy.ps1 sebagai Intune Platform Script, karena remediation sudah melakukan konfigurasi yang sama.
+
+4. Reset / rollback
+
+Sebelum reset, hapus assignment atau nonaktifkan Proactive Remediation terkait di Intune. Jika tidak, Intune akan menerapkan policy kembali.
+
+Kemudian jalankan sebagai Administrator pada device target:
+
+cd "C:\path\ke\itsm-pro\scripts\device-configuration\windows\windows-update"
+
+.\Reset-WindowsUpdateDeadlinePolicy.ps1
+
+Untuk melihat perubahan lebih dulu:
+
+.\Reset-WindowsUpdateDeadlinePolicy.ps1 -WhatIf
+
+Setelah reset, detect.ps1 akan kembali menghasilkan exit 1 karena target konfigurasi memang sudah dihapus. Itu normal selama remediation sudah tidak lagi di-assign.
+
+Catatan: implementasi saat ini menangani konfigurasi policy dan deteksi restart. Komponen toast notification harian dan force-restart satu jam sebelum deadline belum dibuat, jadi belum perlu dimasukkan dalam urutan deployment ini.

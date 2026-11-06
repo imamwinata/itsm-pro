@@ -118,9 +118,7 @@ Pada Intune, jika detect.ps1 mengembalikan exit code 1, Intune akan melanjutkan 
 Urutan yang aman adalah seperti ini.
 
 1. Pilot manual di satu laptop
-
 Jalankan PowerShell sebagai Administrator:
-
 cd "C:\path\ke\itsm-pro\scripts\device-configuration\windows\windows-update"
 
 .\Set-WindowsUpdateDeadlinePolicy.ps1 `
@@ -129,7 +127,6 @@ cd "C:\path\ke\itsm-pro\scripts\device-configuration\windows\windows-update"
   -GracePeriodDays 2
 
 Lalu cek hasil detection:
-
 cd "C:\path\ke\itsm-pro\proactive-remediations\windows\windows-update-restart-notification\pilot"
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\detect.ps1

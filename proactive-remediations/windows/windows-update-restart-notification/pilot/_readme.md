@@ -22,3 +22,12 @@ Remediation script. Jalankan dengan PowerShell 64-bit dalam konteks SYSTEM.
 
 > Belum ada toast notification di remediation ini. Toast dengan tombol harus
 > dijalankan pada konteks user dan akan dideploy sebagai komponen terpisah.
+
+## Script notifikasi user
+
+Script terpisah tersedia di
+`scripts/maintenance/windows-update/Show-WindowsUpdateNotification.ps1`.
+Ia menampilkan dialog dengan pilihan **Update now** dan **Remind me (in 1 hour)**
+bila update tersedia atau restart Windows Update tertunda. Jangan memanggilnya
+langsung dari `detect.ps1` atau `remediate.ps1`, karena kedua script tersebut
+dijalankan oleh Intune sebagai SYSTEM dan tidak dapat menampilkan UI user.

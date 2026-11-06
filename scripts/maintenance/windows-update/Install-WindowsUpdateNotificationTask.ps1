@@ -44,6 +44,16 @@ try {
     $escapedScriptPath = [System.Security.SecurityElement]::Escape($targetNotificationScript)
     $escapedPowerShellPath = [System.Security.SecurityElement]::Escape($powerShellPath)
 
+    # Daftarkan protocol handler untuk tombol "Remind me (in 1 hour)" pada
+    # native toast. Handler berada di HKCU sehingga tidak memerlukan admin.
+    $protocolPath = 'HKCU:\Software\Classes\itsm-pro-windowsupdate'
+    $protocolCommandPath = Join-Path -Path $protocolPath -ChildPath 'shell\open\command'
+    New-Item -Path $protocolCommandPath -Force | Out-Null
+    New-ItemProperty -Path $protocolPath -Name 'URL Protocol' -Value '' -PropertyType String -Force | Out-Null
+
+    $protocolCommand = "`"$powerShellPath`" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$targetNotificationScript`" -ActionUri `"%1`""
+    Set-Item -Path $protocolCommandPath -Value $protocolCommand
+
     # LogonTrigger dengan Delay PT1H memastikan pemeriksaan pertama terjadi satu
     # jam setelah user login. Trigger ini berjalan kembali pada login berikutnya.
     # Notifikasi tidak akan muncul bila script tidak mendeteksi update/restart.
@@ -94,6 +104,7 @@ try {
 
     Write-Output "Scheduled Task '$taskName' berhasil dibuat untuk user saat ini."
     Write-Output "Script notifikasi tersimpan di: $targetNotificationScript"
+    Write-Output 'Protocol handler toast berhasil didaftarkan untuk user saat ini.'
     Write-Output 'Notifikasi akan diperiksa satu jam setelah login berikutnya.'
     exit 0
 }

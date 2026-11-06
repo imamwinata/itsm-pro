@@ -177,3 +177,41 @@ Untuk melihat perubahan lebih dulu:
 Setelah reset, detect.ps1 akan kembali menghasilkan exit 1 karena target konfigurasi memang sudah dihapus. Itu normal selama remediation sudah tidak lagi di-assign.
 
 Catatan: implementasi saat ini menangani konfigurasi policy dan deteksi restart. Komponen toast notification harian dan force-restart satu jam sebelum deadline belum dibuat, jadi belum perlu dimasukkan dalam urutan deployment ini.
+
+
+
+
+
+
+
+
+
+
+saya hanya ingin uji notifikasinya saja dulu, tidak langsung menjalankan policy nya
+
+Bisa. Untuk uji notifikasi saja, tidak perlu menjalankan detect.ps1, remediate.ps1, atau script policy.
+
+Di laptop target, salin file berikut ke folder yang sama, misalnya C:\Temp\ITSM-PRO:
+
+Show-WindowsUpdateNotification.ps1
+Install-WindowsUpdateNotificationTask.ps1
+
+Buka PowerShell sebagai user yang sedang login, lalu jalankan:
+
+Set-Location "C:\Temp\ITSM-PRO"
+Set-ExecutionPolicy -Scope Process Bypass -Force
+
+.\Show-WindowsUpdateNotification.ps1 -ForceDisplay
+
+Parameter -ForceDisplay akan memunculkan dialog test meskipun tidak ada update atau restart pending.
+
+Uji dua tombol:
+
+- Update now → membuka halaman Windows Update.
+- Remind me (in 1 hour) → membuat scheduled task reminder satu jam kemudian.
+
+Untuk memastikan reminder dibuat:
+
+Get-ScheduledTask -TaskName "ITSM-PRO-WindowsUpdateReminder"
+
+Jika hanya ingin menguji dialog, Anda bahkan tidak perlu menjalankan Install-WindowsUpdateNotificationTask.ps1.

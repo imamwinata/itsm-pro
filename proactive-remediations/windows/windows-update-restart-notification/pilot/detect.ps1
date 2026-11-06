@@ -99,12 +99,17 @@ function Get-AvailableWindowsUpdates {
     }
 }
 
-function Get-WindowsUpdateGracePeriod {
+function Get-WindowsUpdatePolicySetting {
     <#
-    Membaca ConfigureDeadlineGracePeriod (dalam hari) bila kebijakan tersebut
-    diterapkan. Intune/Windows tidak selalu menulis nilai ini secara lokal,
-    sehingga fungsi mengembalikan $null bila nilai tidak tersedia.
+    Membaca satu nilai kebijakan Windows Update dari lokasi yang biasa dipakai
+    oleh Policy CSP dan Windows Update policy. Fungsi mengembalikan $null jika
+    kebijakan tidak diterapkan atau tidak diekspos di perangkat.
     #>
+    param(
+        [Parameter(Mandatory)]
+        [string]$Name
+    )
+
     $policyLocations = @(
         'HKLM:\SOFTWARE\Microsoft\PolicyManager\current\device\Update',
         'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate'
@@ -112,14 +117,90 @@ function Get-WindowsUpdateGracePeriod {
 
     foreach ($policyLocation in $policyLocations) {
         try {
-            $gracePeriod = Get-ItemPropertyValue -Path $policyLocation -Name 'ConfigureDeadlineGracePeriod' -ErrorAction Stop
+            $value = Get-ItemPropertyValue -Path $policyLocation -Name $Name -ErrorAction Stop
 
-            if ($null -ne $gracePeriod) {
-                return [int]$gracePeriod
+            if ($null -ne $value) {
+                return [PSCustomObject]@{
+                    Name  = $Name
+                    Value = $value
+                    Path  = $policyLocation
+                }
             }
         }
         catch {
             # Coba lokasi kebijakan berikutnya. Tidak perlu dianggap error.
+        }
+    }
+
+    return $null
+}
+
+function Convert-RegistryDateValue {
+    <#
+    Mengubah format waktu registry yang umum (DateTime, string tanggal, FILETIME
+    atau Unix timestamp) menjadi DateTime. Jika format tidak dikenal, $null
+    dikembalikan agar nilai mentah tetap dapat dilaporkan.
+    #>
+    param([object]$Value)
+
+    if ($Value -is [DateTime]) {
+        return $Value
+    }
+
+    $date = [DateTime]::MinValue
+    if ($Value -is [string] -and [DateTime]::TryParse($Value, [ref]$date)) {
+        return $date
+    }
+
+    try {
+        $numericValue = if ($Value -is [byte[]] -and $Value.Length -eq 8) {
+            [BitConverter]::ToInt64($Value, 0)
+        }
+        else {
+            [Int64]$Value
+        }
+
+        # Windows FILETIME dimulai pada 1 Januari 1601 dan umumnya memiliki
+        # nilai 18 digit. Unix timestamp dipakai sebagai fallback untuk nilai
+        # 10 digit yang kadang digunakan oleh aplikasi lain.
+        if ($numericValue -ge 116444736000000000) {
+            return [DateTime]::FromFileTimeUtc($numericValue).ToLocalTime()
+        }
+
+        if ($numericValue -ge 946684800 -and $numericValue -le 4102444800) {
+            return ([DateTime]'1970-01-01T00:00:00Z').ToLocalTime().AddSeconds($numericValue)
+        }
+    }
+    catch {
+        # Format tidak dapat dikonversi; caller akan menampilkan nilai mentah.
+    }
+
+    return $null
+}
+
+function Get-ScheduledRestartTime {
+    <#
+    Mencari nilai ScheduleRestartTime yang disimpan Windows Update. Nilai ini
+    hanya ada bila Windows memiliki jadwal restart; ketiadaannya bukan error dan
+    bukan berarti tidak ada deadline policy.
+    #>
+    $restartScheduleLocations = @(
+        'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings',
+        'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\Orchestrator\Schedule'
+    )
+
+    foreach ($restartScheduleLocation in $restartScheduleLocations) {
+        try {
+            $value = Get-ItemPropertyValue -Path $restartScheduleLocation -Name 'ScheduleRestartTime' -ErrorAction Stop
+
+            return [PSCustomObject]@{
+                RawValue    = $value
+                ScheduledAt = Convert-RegistryDateValue -Value $value
+                Path        = $restartScheduleLocation
+            }
+        }
+        catch {
+            # Coba lokasi berikutnya; nilainya mungkin memang tidak ada.
         }
     }
 
@@ -155,14 +236,43 @@ try {
             Write-Log -Level 'WARNING' -Message 'Tidak ada detail update tersedia yang dapat ditampilkan dari Windows Update Agent.'
         }
 
-        # Grace period ini adalah nilai ConfigureDeadlineGracePeriod bila
-        # kebijakan Windows Update/Intune menuliskannya ke perangkat.
-        $gracePeriodDays = Get-WindowsUpdateGracePeriod
-        if ($null -ne $gracePeriodDays) {
-            Write-Log -Message "Grace period restart dari kebijakan Windows Update: $gracePeriodDays hari."
+        # Nilai deadline adalah jumlah hari sejak update tersedia, bukan tanggal
+        # deadline absolut. Windows menghitung tanggal aktual per perangkat.
+        $qualityDeadline = Get-WindowsUpdatePolicySetting -Name 'ConfigureDeadlineForQualityUpdates'
+        if ($null -ne $qualityDeadline) {
+            Write-Log -Message "Deadline quality update: $($qualityDeadline.Value) hari sejak update tersedia."
+        }
+        else {
+            Write-Log -Level 'WARNING' -Message 'Deadline quality update tidak ditemukan di kebijakan lokal.'
+        }
+
+        $featureDeadline = Get-WindowsUpdatePolicySetting -Name 'ConfigureDeadlineForFeatureUpdates'
+        if ($null -ne $featureDeadline) {
+            Write-Log -Message "Deadline feature update: $($featureDeadline.Value) hari sejak update tersedia."
+        }
+        else {
+            Write-Log -Level 'WARNING' -Message 'Deadline feature update tidak ditemukan di kebijakan lokal.'
+        }
+
+        $gracePeriod = Get-WindowsUpdatePolicySetting -Name 'ConfigureDeadlineGracePeriod'
+        if ($null -ne $gracePeriod) {
+            Write-Log -Message "Grace period restart dari kebijakan Windows Update: $($gracePeriod.Value) hari."
         }
         else {
             Write-Log -Level 'WARNING' -Message 'Grace period restart tidak ditemukan di kebijakan lokal. Periksa konfigurasi Update Ring di Intune.'
+        }
+
+        $scheduledRestart = Get-ScheduledRestartTime
+        if ($null -ne $scheduledRestart) {
+            if ($null -ne $scheduledRestart.ScheduledAt) {
+                Write-Log -Message "ScheduleRestartTime: $($scheduledRestart.ScheduledAt.ToString('yyyy-MM-dd HH:mm:ss')) (waktu lokal perangkat)."
+            }
+            else {
+                Write-Log -Level 'WARNING' -Message "ScheduleRestartTime ditemukan, tetapi format waktunya tidak dikenali. Nilai mentah: $($scheduledRestart.RawValue)"
+            }
+        }
+        else {
+            Write-Log -Level 'WARNING' -Message 'ScheduleRestartTime tidak ditemukan. Windows belum menyimpan jadwal restart eksplisit pada perangkat ini.'
         }
 
         # Exit 1 memberi tahu Intune untuk menjalankan remediate.ps1.

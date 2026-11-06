@@ -75,3 +75,32 @@ Jadi, gunakan Write-Output untuk pesan status penting yang ingin cepat dilihat d
 
 
 
+cara jalankan file detect.ps1 bagaimana?
+
+Untuk test manual di laptop Windows, buka PowerShell lalu jalankan:
+
+Set-Location "C:\path\ke\itsm-pro\proactive-remediations\windows\windows-update-restart-notification\pilot"
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\detect.ps1
+
+$LASTEXITCODE
+
+Hasilnya:
+
+- 0 → tidak ada restart Windows Update yang tertunda.
+- 1 → restart Windows Update diperlukan.
+
+Log manual akan dibuat di:
+
+%LOCALAPPDATA%\ITSM-PRO\Logs\WindowsUpdateRestartNotification-detect.log
+
+Untuk menjalankannya melalui Intune:
+
+1. Buka Devices → Scripts and remediations → Remediations.
+2. Buat remediation baru.
+3. Upload detect.ps1 sebagai Detection script.
+4. Upload remediate.ps1 sebagai Remediation script.
+5. Aktifkan opsi PowerShell 64-bit.
+6. Assign dahulu ke grup pilot device.
+
+Pada Intune, jika detect.ps1 mengembalikan exit code 1, Intune akan melanjutkan menjalankan remediate.ps1.

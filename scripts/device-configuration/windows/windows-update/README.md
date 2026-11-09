@@ -50,3 +50,13 @@ Gunakan `-WhatIf` untuk melihat perubahan tanpa menghapus apa pun:
 
 Unassign atau nonaktifkan Proactive Remediation/Intune policy terlebih dahulu;
 jika tidak, policy dapat diterapkan lagi pada sync berikutnya.
+
+Jika reset dijalankan oleh user yang memasang notifier, script juga menghapus
+startup entry dan file notifikasi milik user tersebut. Jika dijalankan sebagai
+SYSTEM melalui Intune, komponen notifier user tidak dihapus.
+
+Untuk menghapus notifier saja tanpa hak Administrator atau mengubah policy:
+
+```powershell
+.\Reset-WindowsUpdateDeadlinePolicy.ps1 -NotificationOnly
+```

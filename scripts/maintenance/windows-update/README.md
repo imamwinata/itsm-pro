@@ -3,9 +3,9 @@
 ## File
 
 - `Show-WindowsUpdateNotification.ps1` — mengecek update/restart pending dan
-  menampilkan native Windows toast **Update now** atau **Remind me (in 1 hour)**.
+  menampilkan native Windows toast **Update now** atau **Remind me (in 10 minutes)**.
 - `Install-WindowsUpdateNotificationTask.ps1` — menyalin script notifikasi ke
-  profil user dan membuat Scheduled Task dengan delay satu jam setelah login.
+  profil user dan membuat startup entry dengan delay pilot 15 menit setelah login.
 
 ## Test manual
 
@@ -16,7 +16,7 @@ folder yang sama:
 .\Install-WindowsUpdateNotificationTask.ps1
 ```
 
-Untuk langsung menguji dialog tanpa menunggu task:
+Untuk langsung menguji native toast tanpa menunggu satu jam:
 
 ```powershell
 .\Show-WindowsUpdateNotification.ps1
@@ -35,6 +35,6 @@ Kedua file harus dideploy bersama melalui metode yang mempertahankan file sumber
 Platform Script tidak membawa file pendamping secara otomatis, sehingga tidak
 cocok digunakan sendirian untuk installer ini.
 
-Task hanya memunculkan native toast bila update Windows tersedia atau restart pending.
-Task berjalan satu jam setelah user login; tidak ada UI yang dijalankan dalam
+Startup notifier hanya memunculkan native toast bila update Windows tersedia atau restart pending.
+Startup notifier pilot berjalan 15 menit setelah user login; tidak ada UI yang dijalankan dalam
 konteks SYSTEM.

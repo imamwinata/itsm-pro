@@ -10,22 +10,22 @@
 
     - Update now: membuka halaman Windows Update agar user dapat memulai update
       atau restart dari antarmuka Windows.
-    - Remind me (in 1 hour): membuat Scheduled Task milik user untuk menjalankan
-      script ini sekali lagi satu jam kemudian.
+    - Remind me (in 10 minutes): menjalankan proses reminder user yang memanggil
+      script ini lagi sepuluh menit kemudian.
 
     Script tidak memaksa restart dan tidak menutup aplikasi user.
 
 .NOTES
     Untuk deployment Intune, script harus tersedia pada path lokal yang persisten
-    di perangkat (contoh: C:\ProgramData\ITSM-PRO\Scripts) dan Scheduled Task
-    harus berjalan dalam konteks user. Script Proactive Remediation yang berjalan
+    di perangkat (contoh: %LOCALAPPDATA%\ITSM-PRO\Scripts) dan harus berjalan
+    dalam konteks user. Script Proactive Remediation yang berjalan
     sebagai SYSTEM tidak dapat menampilkan dialog ini secara langsung.
 #>
 
 [CmdletBinding()]
 param(
     # Khusus pilot/test: tampilkan dialog walaupun update atau restart pending
-    # belum ditemukan. Scheduled Task production tidak memakai parameter ini.
+    # belum ditemukan. Startup notifier production tidak memakai parameter ini.
     [switch]$ForceDisplay,
 
     # Dipanggil oleh custom protocol handler saat user menekan tombol pada toast.
@@ -59,36 +59,20 @@ function Get-WindowsUpdateActionState {
     }
 }
 
-function Register-OneHourReminder {
+function Start-Reminder {
     param(
         [Parameter(Mandatory)]
         [string]$ScriptPath
     )
 
-    # Nama task konsisten agar pilihan "remind" berikutnya mengganti jadwal
-    # sebelumnya, bukan membuat banyak notifikasi untuk user yang sama.
-    $taskName = 'ITSM-PRO-WindowsUpdateReminder'
-    $reminderTime = (Get-Date).AddHours(1)
-
-    if (-not (Get-Command -Name Register-ScheduledTask -ErrorAction SilentlyContinue)) {
-        throw 'Register-ScheduledTask tidak tersedia pada perangkat ini.'
-    }
-
-    # Gunakan path PowerShell bawaan Windows dan quote path script dengan aman.
+    # Jalankan proses tersembunyi pada konteks user. Pendekatan ini tidak
+    # memerlukan izin membuat Scheduled Task dan akan berhenti bila user logout.
     $powerShellPath = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
-    $arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$ScriptPath`""
-    $action = New-ScheduledTaskAction -Execute $powerShellPath -Argument $arguments
-    $trigger = New-ScheduledTaskTrigger -Once -At $reminderTime
-    $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable
+    $escapedScriptPath = $ScriptPath.Replace("'", "''")
+    $arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -Command `"Start-Sleep -Seconds 600; & '$escapedScriptPath'`""
+    Start-Process -FilePath $powerShellPath -ArgumentList $arguments -WindowStyle Hidden
 
-    # InteractiveToken memastikan task hanya berjalan pada sesi user saat ini;
-    # tidak ada password user yang disimpan oleh task scheduler.
-    $userIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $principal = New-ScheduledTaskPrincipal -UserId $userIdentity -LogonType Interactive -RunLevel Limited
-
-    Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Force | Out-Null
-
-    return $reminderTime
+    return (Get-Date).AddMinutes(10)
 }
 
 function Show-WindowsUpdateToast {
@@ -114,7 +98,7 @@ function Show-WindowsUpdateToast {
   </visual>
   <actions>
     <action content="Update now" activationType="protocol" arguments="ms-settings:windowsupdate" />
-    <action content="Remind me (in 1 hour)" activationType="protocol" arguments="itsm-pro-windowsupdate://remind" />
+    <action content="Remind me (in 10 minutes)" activationType="protocol" arguments="itsm-pro-windowsupdate://remind" />
   </actions>
 </toast>
 "@
@@ -135,8 +119,8 @@ if ($ActionUri) {
     try {
         $uri = [Uri]$ActionUri
         if ($uri.Scheme -eq 'itsm-pro-windowsupdate' -and $uri.Host -eq 'remind') {
-            $reminderTime = Register-OneHourReminder -ScriptPath $PSCommandPath
-            Write-Output "Reminder satu jam dibuat untuk $($reminderTime.ToString('yyyy-MM-dd HH:mm:ss'))."
+            $reminderTime = Start-Reminder -ScriptPath $PSCommandPath
+            Write-Output "Reminder 10 menit dibuat untuk $($reminderTime.ToString('yyyy-MM-dd HH:mm:ss'))."
             exit 0
         }
 

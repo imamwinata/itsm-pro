@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-    Menginstal Scheduled Task user untuk menjalankan notifikasi Windows Update.
+    Menginstal startup notifier user untuk Windows Update.
 
 .DESCRIPTION
     Script ini menyalin Show-WindowsUpdateNotification.ps1 ke profil user saat
-    ini, kemudian membuat task bernama ITSM-PRO-WindowsUpdateNotification.
-    Task berjalan satu jam setelah user login. Script notifikasi tetap melakukan
+    ini, kemudian membuat startup entry pada profil user. Startup entry berjalan
+    satu jam setelah user login. Script notifikasi tetap melakukan
     pengecekan update/restart sendiri, sehingga dialog hanya tampil bila Windows
     Update memerlukan tindakan.
 
@@ -20,10 +20,14 @@ param()
 
 $ErrorActionPreference = 'Stop'
 
-$taskName = 'ITSM-PRO-WindowsUpdateNotification'
 $sourceNotificationScript = Join-Path -Path $PSScriptRoot -ChildPath 'Show-WindowsUpdateNotification.ps1'
 $targetDirectory = Join-Path -Path $env:LOCALAPPDATA -ChildPath 'ITSM-PRO\Scripts'
 $targetNotificationScript = Join-Path -Path $targetDirectory -ChildPath 'Show-WindowsUpdateNotification.ps1'
+$startupBootstrapScript = Join-Path -Path $targetDirectory -ChildPath 'Start-WindowsUpdateNotificationAfterDelay.ps1'
+
+# Nilai pilot: jalankan pemeriksaan 15 menit setelah user login.
+# Tombol "Remind me (in 1 hour)" pada toast tetap menggunakan 60 menit.
+$startupDelaySeconds = 900
 
 try {
     if (-not [Environment]::UserInteractive) {
@@ -34,17 +38,14 @@ try {
         throw "Script notifikasi tidak ditemukan: $sourceNotificationScript"
     }
 
-    # Simpan salinan lokal agar scheduled task tidak bergantung pada cache atau
+    # Simpan salinan lokal agar startup notifier tidak bergantung pada cache atau
     # lokasi temporary Intune setelah script deployment selesai.
     New-Item -Path $targetDirectory -ItemType Directory -Force | Out-Null
     Copy-Item -Path $sourceNotificationScript -Destination $targetNotificationScript -Force
 
     $powerShellPath = Join-Path -Path $env:SystemRoot -ChildPath 'System32\WindowsPowerShell\v1.0\powershell.exe'
-    $userSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
-    $escapedScriptPath = [System.Security.SecurityElement]::Escape($targetNotificationScript)
-    $escapedPowerShellPath = [System.Security.SecurityElement]::Escape($powerShellPath)
 
-    # Daftarkan protocol handler untuk tombol "Remind me (in 1 hour)" pada
+    # Daftarkan protocol handler untuk tombol "Remind me (in 10 minutes)" pada
     # native toast. Handler berada di HKCU sehingga tidak memerlukan admin.
     $protocolPath = 'HKCU:\Software\Classes\itsm-pro-windowsupdate'
     $protocolCommandPath = Join-Path -Path $protocolPath -ChildPath 'shell\open\command'
@@ -54,61 +55,24 @@ try {
     $protocolCommand = "`"$powerShellPath`" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$targetNotificationScript`" -ActionUri `"%1`""
     Set-Item -Path $protocolCommandPath -Value $protocolCommand
 
-    # LogonTrigger dengan Delay PT1H memastikan pemeriksaan pertama terjadi satu
-    # jam setelah user login. Trigger ini berjalan kembali pada login berikutnya.
-    # Notifikasi tidak akan muncul bila script tidak mendeteksi update/restart.
-    $taskXml = @"
-<?xml version="1.0" encoding="UTF-16"?>
-<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <RegistrationInfo>
-    <Description>Menampilkan notifikasi ITSM-PRO apabila Windows Update membutuhkan tindakan.</Description>
-  </RegistrationInfo>
-  <Triggers>
-    <LogonTrigger>
-      <Enabled>true</Enabled>
-      <Delay>PT1H</Delay>
-    </LogonTrigger>
-  </Triggers>
-  <Principals>
-    <Principal id="InteractiveUser">
-      <UserId>$userSid</UserId>
-      <LogonType>InteractiveToken</LogonType>
-      <RunLevel>LeastPrivilege</RunLevel>
-    </Principal>
-  </Principals>
-  <Settings>
-    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
-    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
-    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
-    <AllowHardTerminate>false</AllowHardTerminate>
-    <StartWhenAvailable>true</StartWhenAvailable>
-    <AllowStartOnDemand>true</AllowStartOnDemand>
-    <Enabled>true</Enabled>
-    <Hidden>false</Hidden>
-    <RunOnlyIfIdle>false</RunOnlyIfIdle>
-    <WakeToRun>false</WakeToRun>
-    <ExecutionTimeLimit>PT10M</ExecutionTimeLimit>
-    <Priority>7</Priority>
-  </Settings>
-  <Actions Context="InteractiveUser">
-    <Exec>
-      <Command>$escapedPowerShellPath</Command>
-      <Arguments>-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File &quot;$escapedScriptPath&quot;</Arguments>
-    </Exec>
-  </Actions>
-</Task>
-"@
+    # Startup entry user menjalankan bootstrap tanpa hak Administrator. Bootstrap
+    # menunggu sesuai nilai pilot lalu memanggil notifier yang disalin ke profil user.
+    $escapedNotificationPath = $targetNotificationScript.Replace("'", "''")
+    $bootstrapContent = "Start-Sleep -Seconds $startupDelaySeconds`r`n& '$escapedNotificationPath'"
+    Set-Content -Path $startupBootstrapScript -Value $bootstrapContent -Encoding UTF8 -Force
 
-    # -Force memperbarui task lama, misalnya ketika script notifikasi diperbarui.
-    Register-ScheduledTask -TaskName $taskName -Xml $taskXml -Force | Out-Null
+    $runKeyPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+    $runValueName = 'ITSM-PRO-WindowsUpdateNotification'
+    $runCommand = "`"$powerShellPath`" -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$startupBootstrapScript`""
+    New-ItemProperty -Path $runKeyPath -Name $runValueName -Value $runCommand -PropertyType String -Force | Out-Null
 
-    Write-Output "Scheduled Task '$taskName' berhasil dibuat untuk user saat ini."
+    Write-Output "Startup entry '$runValueName' berhasil dibuat untuk user saat ini."
     Write-Output "Script notifikasi tersimpan di: $targetNotificationScript"
     Write-Output 'Protocol handler toast berhasil didaftarkan untuk user saat ini.'
-    Write-Output 'Notifikasi akan diperiksa satu jam setelah login berikutnya.'
+    Write-Output 'Notifikasi akan diperiksa 15 menit setelah login berikutnya.'
     exit 0
 }
 catch {
-    Write-Error "Gagal menginstal Windows Update notification task: $($_.Exception.Message)"
+    Write-Error "Gagal menginstal Windows Update startup notifier: $($_.Exception.Message)"
     exit 1
 }

@@ -107,9 +107,9 @@ function Show-WindowsUpdateToast {
     $xmlDocument.LoadXml($toastXml)
     $toast = [Windows.UI.Notifications.ToastNotification]::new($xmlDocument)
 
-    # App ID PowerShell dipakai agar Windows dapat menampilkan toast dari script
-    # tanpa aplikasi tambahan. Ikon/identitas tampil sebagai PowerShell.
-    $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('Microsoft.Windows.PowerShell')
+    # App ID ini didaftarkan oleh installer melalui shortcut Start Menu milik
+    # user. Windows memerlukan identitas tersebut agar banner toast tampil.
+    $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('ITSM-PRO.WindowsUpdateNotification')
     $notifier.Show($toast)
 }
 

@@ -35,6 +35,9 @@ Kedua file harus dideploy bersama melalui metode yang mempertahankan file sumber
 Platform Script tidak membawa file pendamping secara otomatis, sehingga tidak
 cocok digunakan sendirian untuk installer ini.
 
+Installer juga mendaftarkan AppUserModelID melalui shortcut Start Menu agar
+Windows dapat menampilkan native toast di Notification Center dan pojok layar.
+
 Startup notifier hanya memunculkan native toast bila update Windows tersedia atau restart pending.
 Startup notifier pilot berjalan 15 menit setelah user login; tidak ada UI yang dijalankan dalam
 konteks SYSTEM.

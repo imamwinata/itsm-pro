@@ -40,7 +40,7 @@ foreach ($adapter in $adapters) {
 
         # Check current configuration
         if ($currentBand -match "5\s*GHz|5G\s*first|Prefer.*5") {
-            Write-Output "Hostname $hostname - $($adapter.Name): Already configured from $currentBand to 5 GHz"
+            Write-Output "Hostname $hostname - $($adapter.Name): Already configured to 5 GHz"
         } else {
             Write-Output "Hostname $hostname - $($adapter.Name): Current band is $currentBand"
             $compliant = $false

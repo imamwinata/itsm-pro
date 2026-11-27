@@ -6,6 +6,19 @@
 
 $hostname = $env:COMPUTERNAME
 
+# Allowed Device Hostnames
+# $allowedDevices = @(
+#     "LAPTOP-001",
+#     "LAPTOP-002",
+#     "LAPTOP-003"
+# )
+
+# # Validate Device
+# if ($hostname -notin $allowedDevices) {
+#     Write-Output "Hostname $hostname tidak termasuk target deployment"
+#     exit 0
+# }
+
 # Detect physical Wi-Fi adapters
 $adapters = Get-NetAdapter -Physical | Where-Object {
     $_.NdisPhysicalMedium -eq 9

@@ -1,33 +1,60 @@
+
+# ==========================================
+# UNIVERSAL WIFI PREFERRED BAND CONFIGURATION
+# Target: 5 GHz
+# ==========================================
+
 $hostname = $env:COMPUTERNAME
 
-$adapters = Get-NetAdapter | Where-Object {
-    $_.PhysicalMediaType -eq "Native 802.11"
+# Detect physical Wi-Fi adapters
+$adapters = Get-NetAdapter -Physical | Where-Object {
+    $_.NdisPhysicalMedium -eq 9
+}
+
+if (-not $adapters) {
+    Write-Output "Hostname $hostname Wi-Fi adapter tidak ditemukan"
+    return
 }
 
 foreach ($adapter in $adapters) {
 
-    $property = Get-NetAdapterAdvancedProperty `
-        -Name $adapter.Name `
-        -AllProperties |
-        Where-Object { $_.DisplayName -match "^Preferred Band$" } |
-        Select-Object -First 1
+    try {
 
-    if (-not $property) {
-        continue
-    }
+        # Detect Preferred Band property
+        $property = Get-NetAdapterAdvancedProperty `
+            -Name $adapter.Name `
+            -AllProperties `
+            -ErrorAction Stop |
+            Where-Object {
+                $_.DisplayName -match "Preferred Band"
+            } |
+            Select-Object -First 1
 
-    $currentBand = $property.DisplayValue
+        if (-not $property) {
+            Write-Output "Hostname $hostname Preferred Band tidak tersedia"
+            continue
+        }
 
-    $fiveGHzOption = $property.ValidDisplayValues |
-        Where-Object { $_ -match "5\s*GHz" } |
-        Select-Object -First 1
+        # Get current configuration
+        $currentBand = $property.DisplayValue
 
-    if ($currentBand -match "5\s*GHz") {
-        Write-Output "Hostname $hostname tidak ada perubahan, sudah 5GHz"
-    }
-    elseif ($currentBand -match "2\.4\s*GHz" -and $fiveGHzOption) {
+        # Detect available 5 GHz option dynamically
+        $fiveGHzOption = $property.ValidDisplayValues |
+            Where-Object {
+                $_ -match "5\s*GHz|5G\s*first|Prefer.*5"
+            } |
+            Select-Object -First 1
 
-        try {
+        # Already configured to 5 GHz
+        if ($currentBand -match "5\s*GHz|5G\s*first|Prefer.*5") {
+
+            Write-Output "Hostname $hostname tidak ada perubahan, sudah 5GHz"
+
+        }
+
+        # Change to 5 GHz
+        elseif ($fiveGHzOption) {
+
             Set-NetAdapterAdvancedProperty `
                 -Name $adapter.Name `
                 -DisplayName $property.DisplayName `
@@ -35,10 +62,20 @@ foreach ($adapter in $adapters) {
                 -NoRestart `
                 -ErrorAction Stop
 
-            Write-Output "Hostname $hostname berhasil diubah dari 2.4GHz menjadi 5GHz"
+            Write-Output "Hostname $hostname berhasil diubah dari $currentBand menjadi 5GHz"
+
         }
-        catch {
-            Write-Output "Hostname $hostname gagal mengubah Preferred Band"
+
+        else {
+
+            Write-Output "Hostname $hostname opsi Preferred Band 5GHz tidak tersedia"
+
         }
+
+    }
+    catch {
+
+        Write-Output "Hostname $hostname gagal mengubah Preferred Band"
+
     }
 }

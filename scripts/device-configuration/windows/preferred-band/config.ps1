@@ -76,6 +76,7 @@ foreach ($adapter in $adapters) {
     catch {
 
         Write-Output "Hostname $hostname gagal mengubah Preferred Band"
-
+        Write-Output "Error: $($_.Exception.Message)"
+        Write-Output "Error Details: $($_ | Out-String)"
     }
 }

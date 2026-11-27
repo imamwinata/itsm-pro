@@ -70,7 +70,6 @@ foreach ($adapter in $adapters) {
                 } |
                 Select-Object -First 1
 
-            $currentBand = $updatedProperty.DisplayValue
             if ($updatedProperty.DisplayValue -match "5\s*GHz|5G\s*first|Prefer.*5") {
                 Write-Output "Hostname $hostname - $($adapter.Name): Successfully changed from $currentBand to 5 GHz"
             } else {

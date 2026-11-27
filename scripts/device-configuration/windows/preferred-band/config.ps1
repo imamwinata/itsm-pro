@@ -17,9 +17,7 @@ if (-not $adapters) {
 }
 
 foreach ($adapter in $adapters) {
-
     try {
-
         # Detect Preferred Band property
         $property = Get-NetAdapterAdvancedProperty `
             -Name $adapter.Name `
@@ -39,7 +37,13 @@ foreach ($adapter in $adapters) {
         $currentBand = $property.DisplayValue
 
         # Detect available 5 GHz option dynamically
-        $fiveGHzOption = $property.ValidDisplayValues |
+        # $fiveGHzOption = $property.ValidDisplayValues |
+        #     Where-Object {
+        #         $_ -match "5\s*GHz|5G\s*first|Prefer.*5"
+        #     } |
+        #     Select-Object -First 1
+
+        $fiveGHzOption = @($property.ValidDisplayValues) |
             Where-Object {
                 $_ -match "5\s*GHz|5G\s*first|Prefer.*5"
             } |
@@ -47,14 +51,11 @@ foreach ($adapter in $adapters) {
 
         # Already configured to 5 GHz
         if ($currentBand -match "5\s*GHz|5G\s*first|Prefer.*5") {
-
             Write-Output "Hostname $hostname tidak ada perubahan, sudah 5GHz"
-
         }
 
         # Change to 5 GHz
         elseif ($fiveGHzOption) {
-
             Set-NetAdapterAdvancedProperty `
                 -Name $adapter.Name `
                 -DisplayName $property.DisplayName `
@@ -63,18 +64,10 @@ foreach ($adapter in $adapters) {
                 -ErrorAction Stop
 
             Write-Output "Hostname $hostname berhasil diubah dari $currentBand menjadi 5GHz"
-
-        }
-
-        else {
-
+        } else {
             Write-Output "Hostname $hostname opsi Preferred Band 5GHz tidak tersedia"
-
         }
-
-    }
-    catch {
-
+    } catch {
         Write-Output "Hostname $hostname gagal mengubah Preferred Band"
         Write-Output "Error: $($_.Exception.Message)"
         Write-Output "Error Details: $($_ | Out-String)"

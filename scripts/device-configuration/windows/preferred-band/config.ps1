@@ -41,7 +41,7 @@ foreach ($adapter in $adapters) {
         #     Where-Object {
         #         $_ -match "5\s*GHz|5G\s*first|Prefer.*5"
         #     } |
-        #     Select-Object -First 1
+        #     Select-Object -First 1 
 
         $fiveGHzOption = @($property.ValidDisplayValues) |
             Where-Object {

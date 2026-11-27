@@ -48,6 +48,7 @@ foreach ($adapter in $adapters) {
     } catch {
         Write-Output "Hostname $hostname - $($adapter.Name): Detection failed"
         Write-Output "Error: $($_.Exception.Message)"
+        Write-Output "Error Details: $($_ | Out-String)"
         $compliant = $false
     }
 }

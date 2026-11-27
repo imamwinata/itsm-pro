@@ -1,0 +1,6 @@
+{
+  "apps": [
+    { "id": "contoso-vpn", "desiredVersion": "5.2.0", "supersedes": "contoso-vpn-legacy", "allowUninstallLegacy": true },
+    { "id": "fabrikam-reader", "desiredVersion": "3.1.0", "supersedes": null, "allowUninstallLegacy": false }
+  ]
+}

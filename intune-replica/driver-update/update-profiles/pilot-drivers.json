@@ -1,0 +1,6 @@
+{
+  "name": "pilot-driver-profile",
+  "allowedManufacturers": ["Contoso", "Fabrikam"],
+  "requireApproval": true,
+  "blockedCategories": ["Firmware"]
+}

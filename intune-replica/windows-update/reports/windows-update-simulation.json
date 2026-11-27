@@ -1,0 +1,23 @@
+{
+  "generatedUtc": "2026-11-11T07:54:22.2083780Z",
+  "simulation": "windows-update",
+  "deviceId": "PILOT-WIN-001",
+  "restartRequired": true,
+  "scheduledRestartUtc": "2026-11-11T10:30:00Z",
+  "updates": [
+    {
+      "id": "KB5000001",
+      "type": "quality",
+      "deadlineUtc": "2026-11-12T08:00:00.0000000Z",
+      "graceEndsUtc": "2026-11-14T08:00:00.0000000Z",
+      "status": "restart-required"
+    },
+    {
+      "id": "WIN11-24H2",
+      "type": "feature",
+      "deadlineUtc": "2026-11-15T08:00:00.0000000Z",
+      "graceEndsUtc": "2026-11-17T08:00:00.0000000Z",
+      "status": "within-deadline"
+    }
+  ]
+}

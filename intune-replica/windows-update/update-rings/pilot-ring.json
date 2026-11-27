@@ -1,0 +1,8 @@
+{
+  "name": "pilot-update-ring",
+  "qualityDeadlineDays": 7,
+  "featureDeadlineDays": 14,
+  "gracePeriodDays": 2,
+  "activeHours": { "start": "08:00", "end": "17:00" },
+  "restartBehavior": "notify-only"
+}

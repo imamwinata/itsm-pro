@@ -215,3 +215,72 @@ Untuk memastikan reminder dibuat:
 Get-ScheduledTask -TaskName "ITSM-PRO-WindowsUpdateReminder"
 
 Jika hanya ingin menguji dialog, Anda bahkan tidak perlu menjalankan Install-WindowsUpdateNotificationTask.ps1.
+
+
+
+
+
+
+
+
+
+
+Komponen terpisah untuk toast berulang sudah dibuat:
+
+- Start-RepeatingWindowsUpdateToast.ps1 (scripts/maintenance/windows-update/repeating-toast/Start-RepeatingWindowsUpdateToast.ps1)
+- Stop-RepeatingWindowsUpdateToast.ps1 (scripts/maintenance/windows-update/repeating-toast/Stop-RepeatingWindowsUpdateToast.ps1)
+
+Jalankan dulu installer notifier sekali per user:
+
+.\Install-WindowsUpdateNotificationTask.ps1
+
+Lalu, saat Windows Update sudah berstatus Restart required, jalankan:
+
+.\Start-RepeatingWindowsUpdateToast.ps1
+
+Hasilnya:
+
+- Toast muncul segera.
+- Toast muncul lagi setiap 10 menit selama status restart pending masih ada.
+- Script berhenti sendiri saat restart pending hilang.
+- Tidak mengubah policy dan tidak memaksa update/restart.
+
+Untuk menghentikan manual, buka PowerShell lain pada user yang sama:
+
+.\Stop-RepeatingWindowsUpdateToast.ps1
+
+Saat script repeating berjalan, jangan tutup jendela PowerShell tersebut; menutupnya akan menghentikan pengulangan. Sintaks kedua script sudah tervalidasi.
+
+
+
+
+
+
+
+
+
+
+
+
+
+Toolkit simulasi lokal sudah diimplementasikan di intune-replica (intune-replica).
+
+Fitur yang tersedia:
+
+- Windows Update: simulasi update ring, quality/feature deadline, grace period, restart required, dan enforcement window.
+- Driver Update: simulasi allowlist manufacturer, approval, compatibility, dan blocklist kategori.
+- Application Update: simulasi install/update version, compliance, supersedence, serta uninstall aplikasi lama setelah validasi.
+- Security: validasi JSON, batas ukuran input 1 MB, penolakan field rahasia, tanpa Graph/network/token, dan tanpa perubahan pada Windows/Intune.
+
+Jalankan semuanya:
+
+cd intune-replica
+.\Invoke-AllSimulations.ps1
+
+Laporan JSON telah berhasil dibuat di:
+
+- Windows Update report (intune-replica/windows-update/reports/windows-update-simulation.json)
+- Driver Update report (intune-replica/driver-update/reports/driver-update-simulation.json)
+- Application Update report (intune-replica/application-update/reports/application-update-simulation.json)
+
+Detail batasan keamanan tersedia di SECURITY.md (intune-replica/docs/SECURITY.md).

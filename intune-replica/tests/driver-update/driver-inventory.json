@@ -1,0 +1,8 @@
+{
+  "deviceId": "PILOT-WIN-001",
+  "drivers": [
+    { "id": "contoso-net-2.0", "manufacturer": "Contoso", "category": "Network", "approved": true, "compatible": true },
+    { "id": "fabrikam-fw-1.1", "manufacturer": "Fabrikam", "category": "Firmware", "approved": true, "compatible": true },
+    { "id": "unknown-audio-3.0", "manufacturer": "Unknown", "category": "Audio", "approved": false, "compatible": true }
+  ]
+}

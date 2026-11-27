@@ -1,0 +1,8 @@
+{
+  "deviceId": "PILOT-WIN-001",
+  "apps": [
+    { "id": "contoso-vpn", "installedVersion": "5.0.0" },
+    { "id": "contoso-vpn-legacy", "installedVersion": "4.2.0" },
+    { "id": "fabrikam-reader", "installedVersion": "3.1.0" }
+  ]
+}

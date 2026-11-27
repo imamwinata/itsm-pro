@@ -1,0 +1,19 @@
+{
+  "generatedUtc": "2026-11-11T07:52:09.6108050Z",
+  "simulation": "driver-update",
+  "deviceId": "PILOT-WIN-001",
+  "decisions": [
+    {
+      "id": "contoso-net-2.0",
+      "decision": "eligible-for-pilot"
+    },
+    {
+      "id": "fabrikam-fw-1.1",
+      "decision": "category-blocked"
+    },
+    {
+      "id": "unknown-audio-3.0",
+      "decision": "manufacturer-not-allowed"
+    }
+  ]
+}

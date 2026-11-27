@@ -1,0 +1,17 @@
+{
+  "generatedUtc": "2026-11-11T07:52:09.6408850Z",
+  "simulation": "application-update",
+  "deviceId": "PILOT-WIN-001",
+  "decisions": [
+    {
+      "id": "contoso-vpn",
+      "action": "update-required",
+      "legacyAction": "legacy-uninstall-after-validation"
+    },
+    {
+      "id": "fabrikam-reader",
+      "action": "compliant",
+      "legacyAction": "none"
+    }
+  ]
+}

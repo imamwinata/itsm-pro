@@ -1,0 +1,9 @@
+{
+  "deviceId": "PILOT-WIN-001",
+  "restartRequired": true,
+  "scheduledRestartUtc": "2026-11-11T10:30:00Z",
+  "updates": [
+    { "id": "KB5000001", "type": "quality", "offeredUtc": "2026-11-05T08:00:00Z", "installed": true, "requiresRestart": true },
+    { "id": "WIN11-24H2", "type": "feature", "offeredUtc": "2026-11-01T08:00:00Z", "installed": false, "requiresRestart": false }
+  ]
+}
